@@ -1,0 +1,88 @@
+MPICH官方仓库: https://github.com/pmodels/mpich
+
+MPI支持DAOS的关键提交: Add DAOS ADIO driver to ROMIO: https://github.com/ssbandjl/mpich/commit/2dfc5ae38c6b987c853da72a183b891631ffcb42
+
+
+PMPI_Send
+
+MPID_Isend
+
+MPID_Send 实现 MPI_Send
+MPL_STATIC_INLINE_PREFIX int MPID_Send(const void *buf,
+                                       MPI_Aint count,
+                                       MPI_Datatype datatype,
+                                       int rank,
+                                       int tag, MPIR_Comm * comm, int attr, MPIR_Request ** request)
+{
+    return MPID_Isend(buf, count, datatype, rank, tag, comm, attr, request);
+        mpi_errno = MPIDI_isend
+            MPIDI_NM_mpi_isend
+                MPIDI_OFI_send // ucx对应参考函数为: MPIDI_UCX_send
+                    MPIDI_OFI_send_iov
+                        fi_tsendmsg(MPIDI_OFI_global.ctx[ctx_idx].tx, &msg, flags) // OFI带TAG发送消息的接口
+                    or MPIDI_OFI_send_normal
+}
+
+
+MPIDI_OFI_send
+
+MPIDI_UCX_send
+
+
+MPICH调用DAOS文件系统调用栈:
+MPI_File_iwrite_at -> 使用显式偏移的非阻塞写入, https://www.mpich.org/static/docs/v3.0.x/www3/MPI_File_iwrite_at.html
+    MPIR_File_iwrite_at_impl
+        MPIOI_File_iwrite
+            ADIO_WriteContig -> ADIOI_DAOS_WriteContig
+                DAOS_IOContig(fd, (void *) buf, count, datatype, file_ptr_type, offset, status, NULL, DAOS_WRITE, error_code)
+                    daos_event_init(&aio_req->daos_event, DAOS_HDL_INVAL, NULL)
+                    memcpy(&(aio_req->req), request, sizeof(MPI_Request))
+                    d_iov_set(iov, buf, len)
+                    ret = dfs_write(cont->dfs, cont->obj, sgl, offset, (request ? &aio_req->daos_event : NULL))
+                    or ret = dfs_read(cont->dfs, cont->obj, sgl, offset, nbytes, (request ? &aio_req->daos_event : NULL))
+
+
+MPI_Allgather
+
+MPI_File_write_all
+    MPIR_File_write_all_impl
+        ADIO_WriteStridedColl
+
+
+DAOS:
+struct ADIOI_Fns_struct ADIO_DAOS_operations = {
+    ADIOI_DAOS_Open,    /* Open */
+    ADIOI_DAOS_OpenColl,        /* OpenColl */
+    ADIOI_DAOS_ReadContig,      /* ReadContig */
+    ADIOI_DAOS_WriteContig,     /* WriteContig */
+    ADIOI_GEN_ReadStridedColl,  /* ReadStridedColl */
+    ADIOI_GEN_WriteStridedColl, /* WriteStridedColl */
+    ADIOI_GEN_SeekIndividual,   /* SeekIndividual */
+    ADIOI_DAOS_Fcntl,   /* Fcntl */
+    ADIOI_DAOS_SetInfo, /* SetInfo */
+    ADIOI_DAOS_ReadStrided,     /* ReadStrided */
+    ADIOI_DAOS_WriteStrided,    /* WriteStrided */
+    ADIOI_DAOS_Close,   /* Close */
+    ADIOI_DAOS_IReadContig,     /* IreadContig */
+    ADIOI_DAOS_IWriteContig,    /* IwriteContig */
+    ADIOI_FAKE_IODone,  /* ReadDone */
+    ADIOI_FAKE_IODone,  /* WriteDone */
+    ADIOI_FAKE_IOComplete,      /* ReadComplete */
+    ADIOI_FAKE_IOComplete,      /* WriteComplete */
+    ADIOI_DAOS_IreadStrided,    /* IreadStrided */
+    ADIOI_DAOS_IwriteStrided,   /* IwriteStrided */
+    ADIOI_DAOS_Flush,   /* Flush */
+    ADIOI_DAOS_Resize,  /* Resize */
+    ADIOI_DAOS_Delete,  /* Delete */
+    ADIOI_DAOS_Feature, /* Features */
+    "DAOS: ROMIO driver for DAOS",
+    ADIOI_GEN_IreadStridedColl, /* IreadStridedColl */
+    ADIOI_GEN_IwriteStridedColl,        /* IwriteStridedColl */
+#if defined(F_SETLKW64)
+    ADIOI_GEN_SetLock   /* SetLock */
+#else
+    ADIOI_GEN_SetLock64 /* SetLock */
+#endif
+};
+
+
