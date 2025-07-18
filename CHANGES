@@ -1,4 +1,13 @@
 ===============================================================================
+                               Changes in 5.0
+===============================================================================
+# MPIR_CHKLMEM_ and MPIR_CHKPMEM_ macros are simplified, removing non-essential
+  argument such as type case and custom error messages.
+
+# Rename MPIR_CVAR_DEBUG_PROGRESS_TIMEOUT to MPIR_CVAR_PROGRESS_TIMEOUT, and
+  enable it whether or not --enable-g=progress is used in configure.
+
+===============================================================================
                                Changes in 4.3
 ===============================================================================
 # Support MPI memory allocation kinds side document.

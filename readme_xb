@@ -85,4 +85,8 @@ struct ADIOI_Fns_struct ADIO_DAOS_operations = {
 #endif
 };
 
+git repo: https://github.com/daos-stack/mpich
+
+git submodule init
+git submodule update
 
